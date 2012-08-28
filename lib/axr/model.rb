@@ -20,7 +20,7 @@ module AjaxfulRating # :nodoc:
     def ajaxful_rateable(options = {})
       options[:class_name] ||= 'Rate'
       has_many :rates_without_dimension, :as => :rateable, :class_name => options[:class_name], :dependent => :destroy, :conditions => {:dimension => nil}
-      has_many :raters_without_dimension, :through => :rates_without_dimension, :source => :rater
+      has_many :raters_without_dimension, :through => :rates_without_dimension, :source => :user
 
       class << self
         def axr_config(dimension = nil)
@@ -41,7 +41,7 @@ module AjaxfulRating # :nodoc:
         options[:dimensions].each do |dimension|
           has_many "#{dimension}_rates", :dependent => :destroy,
             :conditions => {:dimension => dimension.to_s}, :class_name => 'Rate', :as => :rateable
-          has_many "#{dimension}_raters", :through => "#{dimension}_rates", :source => :rater
+          has_many "#{dimension}_raters", :through => "#{dimension}_rates", :source => :user
 
           axr_config(dimension).update(options)
         end 
@@ -56,7 +56,7 @@ module AjaxfulRating # :nodoc:
 
     # Makes the association between user and Rate model.
     def ajaxful_rater(options = {})
-      has_many :ratings_given, options.merge(:class_name => "Rate", :foreign_key => :rater_id)
+      has_many :ratings_given, options.merge(:class_name => "Rate", :foreign_key => :user_id)
     end
   end
 
@@ -85,7 +85,7 @@ module AjaxfulRating # :nodoc:
         rate_by(user, dimension)
       else
         rates(dimension).build.tap do |r|
-          r.rater = user
+          r.user = user
         end
       end
       rate.stars = stars
@@ -115,7 +115,7 @@ module AjaxfulRating # :nodoc:
     # It may works as an alias for +dimension_raters+ methods.
     def raters(dimension = nil)
       sql = "SELECT DISTINCT u.* FROM #{self.class.user_class.table_name} u "\
-        "INNER JOIN rates r ON u.id = r.rater_id WHERE "
+        "INNER JOIN rates r ON u.id = r.user_id WHERE "
       
       sql << self.class.send(:sanitize_sql_for_conditions, {
         :rateable_id => id,
@@ -128,7 +128,7 @@ module AjaxfulRating # :nodoc:
 
     # Finds the rate made by the user if he/she has already voted.
     def rate_by(user, dimension = nil)
-      rates(dimension).find_by_rater_id(user.id)
+      rates(dimension).find_by_user_id(user)
     end
 
     # Return true if the user has rated the object, otherwise false
@@ -203,7 +203,7 @@ module AjaxfulRating # :nodoc:
 
     # Name of the class for the user model.
     def user_class_name
-      Rate.reflect_on_association(:rater).options[:class_name]
+      Rate.reflect_on_association(:user).options[:class_name]
     end
     
     # Gets the user's class
@@ -213,7 +213,7 @@ module AjaxfulRating # :nodoc:
 
     # Finds all rateable objects rated by the +user+.
     def find_rated_by(user, dimension = nil)
-      find_statement(:rater_id, user.id, dimension)
+      find_statement(:user_id, user.id, dimension)
     end
 
     # Finds all rateable objects rated with +stars+.
